@@ -43,6 +43,9 @@ function App() {
   const canvasRef = useRef<HTMLDivElement>(null);
   const dragStartPosRef = useRef<{ x: number; y: number } | null>(null);
   const textRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+  const [canvasWidth, setCanvasWidth] = useState(794);
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeStartXRef = useRef<number | null>(null);
 
   // Add a state for storing the font data
   const [fontData, setFontData] = useState<{ data: string, name: string } | null>(null);
@@ -434,11 +437,17 @@ function App() {
   useEffect(() => {
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
+    if (isResizing) {
+      window.addEventListener('mousemove', handleResizeMove);
+      window.addEventListener('mouseup', handleResizeEnd);
+    }
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('mousemove', handleResizeMove);
+      window.removeEventListener('mouseup', handleResizeEnd);
     };
-  }, [isDragging, selectedId]); // Remove texts from dependency array as it causes frequent re-renders
+  }, [isDragging, selectedId, isResizing]); // Remove texts from dependency array as it causes frequent re-renders
 
   // Use a debounced effect for checking text overflow
   useEffect(() => {
@@ -449,6 +458,29 @@ function App() {
   }, [texts, batchData, currentBatchIndex]);
 
   const selectedText = texts.find(text => text.id === selectedId);
+
+  // Neue Funktionen für das Resize-Feature
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+    resizeStartXRef.current = e.clientX;
+  };
+
+  const handleResizeMove = (e: MouseEvent) => {
+    if (isResizing && resizeStartXRef.current !== null) {
+      const diff = e.clientX - resizeStartXRef.current;
+      const newWidth = Math.max(400, Math.min(1200, canvasWidth + diff));
+      setCanvasWidth(newWidth);
+      resizeStartXRef.current = e.clientX;
+    }
+  };
+
+  const handleResizeEnd = () => {
+    setIsResizing(false);
+    resizeStartXRef.current = null;
+    // Überprüfen, ob Elemente außerhalb des sichtbaren Bereichs sind
+    checkTextOverflow();
+  };
 
   return (
     <div className="min-h-screen bg-gray-100 p-8">
@@ -657,80 +689,105 @@ function App() {
             </div>
           </div>
 
-          <div
-            ref={canvasRef}
-            className="relative w-full h-[370px] border-2 border-gray-200 rounded-lg bg-white overflow-hidden"
-            style={{
-              width: '794px',
-              height: '370px'
-            }}
-          >
-            {texts.map((text) => (
-              <div
-                key={text.id}
-                data-text-id={text.id}
-                className={`absolute group ${
-                  selectedId === text.id ? 'text-blue-600 ring-2 ring-blue-200 rounded' : 'text-gray-800'
-                } ${isDragging && selectedId === text.id ? 'cursor-grabbing opacity-80' : ''}`}
-                style={{
-                  left: `${text.x}px`,
-                  top: `${text.y}px`,
-                  minWidth: '100px',
-                  maxWidth: '600px', // Prevent text from extending too far
-                  fontSize: `${text.fontSize}px`,
-                  fontFamily: customFont || 'system-ui',
-                  textAlign: text.align,
-                  fontWeight: text.bold ? 'bold' : 'normal',
-                  fontStyle: text.italic ? 'italic' : 'normal',
-                  lineHeight: text.lineHeight,
-                  padding: `0 ${text.padding}px`,
-                }}
-                onMouseDown={(e) => handleMouseDown(text.id, e)}
-                ref={(el) => textRefs.current[text.id] = el}
-              >
-                {!isExporting && (
-                  <div className="flex items-center gap-1 mb-1">
-                    <Move size={14} className="opacity-50 cursor-move move-handle" />
-                    <button
-                      onClick={() => duplicateText(text.id)}
-                      title="Duplicate"
-                      className="opacity-0 group-hover:opacity-100 text-gray-500 transition-opacity"
-                    >
-                      <Copy size={14} />
-                    </button>
-                    <button
-                      onClick={() => deleteText(text.id)}
-                      className="opacity-0 group-hover:opacity-100 text-red-500 transition-opacity"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                    {text.isOverflowing && (
-                      <AlertTriangle 
-                        size={14} 
-                        className="text-amber-500" 
-                        title="Text is overflowing the canvas boundaries"
-                      />
-                    )}
-                  </div>
-                )}
+          <div className="mb-2 flex items-center">
+            <span className="text-sm text-gray-600 mr-2">Textfenster-Breite:</span>
+            <span className="text-sm font-medium">{canvasWidth}px</span>
+          </div>
+
+          <div className="relative">
+            <div
+              ref={canvasRef}
+              className="relative border-2 border-gray-200 rounded-lg bg-white overflow-hidden"
+              style={{
+                width: `${canvasWidth}px`,
+                height: '370px'
+              }}
+            >
+              {texts.map((text) => (
                 <div
-                  contentEditable
-                  suppressContentEditableWarning
-                  onInput={(e) => handleTextChange(text.id, e)}
-                  onKeyDown={handleKeyDown}
-                  className="outline-none whitespace-pre-wrap break-words"
+                  key={text.id}
+                  data-text-id={text.id}
+                  className={`absolute group ${
+                    selectedId === text.id ? 'text-blue-600 ring-2 ring-blue-200 rounded' : 'text-gray-800'
+                  } ${isDragging && selectedId === text.id ? 'cursor-grabbing opacity-80' : ''}`}
+                  style={{
+                    left: `${text.x}px`,
+                    top: `${text.y}px`,
+                    minWidth: '100px',
+                    maxWidth: '600px', // Prevent text from extending too far
+                    fontSize: `${text.fontSize}px`,
+                    fontFamily: customFont || 'system-ui',
+                    textAlign: text.align,
+                    fontWeight: text.bold ? 'bold' : 'normal',
+                    fontStyle: text.italic ? 'italic' : 'normal',
+                    lineHeight: text.lineHeight,
+                    padding: `0 ${text.padding}px`,
+                  }}
+                  onMouseDown={(e) => handleMouseDown(text.id, e)}
+                  ref={(el) => textRefs.current[text.id] = el}
                 >
-                  {batchData.length > 0 && currentBatchIndex < batchData.length
-                    ? replacePlaceholders(text.text, batchData[currentBatchIndex])
-                    : text.text}
+                  {!isExporting && (
+                    <div className="flex items-center gap-1 mb-1">
+                      <Move size={14} className="opacity-50 cursor-move move-handle" />
+                      <button
+                        onClick={() => duplicateText(text.id)}
+                        title="Duplicate"
+                        className="opacity-0 group-hover:opacity-100 text-gray-500 transition-opacity"
+                      >
+                        <Copy size={14} />
+                      </button>
+                      <button
+                        onClick={() => deleteText(text.id)}
+                        className="opacity-0 group-hover:opacity-100 text-red-500 transition-opacity"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                      {text.isOverflowing && (
+                        <AlertTriangle 
+                          size={14} 
+                          className="text-amber-500" 
+                          title="Text is overflowing the canvas boundaries"
+                        />
+                      )}
+                    </div>
+                  )}
+                  <div
+                    contentEditable
+                    suppressContentEditableWarning
+                    onInput={(e) => handleTextChange(text.id, e)}
+                    onKeyDown={handleKeyDown}
+                    className="outline-none whitespace-pre-wrap break-words"
+                  >
+                    {batchData.length > 0 && currentBatchIndex < batchData.length
+                      ? replacePlaceholders(text.text, batchData[currentBatchIndex])
+                      : text.text}
+                  </div>
                 </div>
+              ))}
+              {isExporting && !isCapturing && (
+                <div className="absolute inset-0 bg-white bg-opacity-50 flex items-center justify-center">
+                  <div className="text-lg font-semibold text-gray-700">Generating PDF...</div>
+                </div>
+              )}
+            </div>
+            
+            {/* Resize-Handle hinzufügen */}
+            <div 
+              className="absolute top-0 right-0 bottom-0 w-4 cursor-ew-resize hover:bg-blue-200 opacity-50 hover:opacity-100 transition-opacity"
+              onMouseDown={handleResizeStart}
+              style={{
+                touchAction: 'none'
+              }}
+            >
+              <div className="h-full flex items-center justify-center">
+                <div className="h-8 w-1 bg-gray-400 rounded"></div>
               </div>
-            ))}
-            {isExporting && !isCapturing && (
-              <div className="absolute inset-0 bg-white bg-opacity-50 flex items-center justify-center">
-                <div className="text-lg font-semibold text-gray-700">Generating PDF...</div>
-              </div>
-            )}
+            </div>
+            
+            {/* Breite-Anzeiger am unteren Rand */}
+            <div className="absolute bottom-[-20px] left-0 right-0 text-xs text-gray-500 text-center">
+              {isResizing ? `${canvasWidth}px` : ''}
+            </div>
           </div>
 
           {batchData.length > 0 && (

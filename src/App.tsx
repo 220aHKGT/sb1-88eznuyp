@@ -461,11 +461,12 @@ function App() {
 
   const selectedText = texts.find(text => text.id === selectedId);
 
-  // Neue Funktionen für das Resize-Feature
+  // Verbesserte Resize-Funktionen für stabileres Verhalten
   const handleResizeStart = (e: React.MouseEvent, id: string) => {
     e.stopPropagation(); // Verhindert das Auslösen des Drag-Events
     e.preventDefault();
     
+    setSelectedId(id); // Stellen Sie sicher, dass das Element ausgewählt ist
     setIsResizing(true);
     
     const textElement = texts.find(text => text.id === id);
@@ -478,24 +479,83 @@ function App() {
   };
 
   const handleResizeMove = (e: MouseEvent) => {
-    if (isResizing && selectedId && resizeStartPosRef.current) {
-      const diff = e.clientX - resizeStartPosRef.current.x;
-      const newWidth = Math.max(100, Math.min(700, resizeStartPosRef.current.width + diff));
+    if (isResizing && selectedId && resizeStartPosRef.current && canvasRef.current) {
+      e.preventDefault();
       
-      setTexts(texts.map(text => 
+      // Holen der Canvas-Breite
+      const canvasWidth = canvasRef.current.clientWidth;
+      
+      // Berechne die absolute Breitenänderung
+      const diff = e.clientX - resizeStartPosRef.current.x;
+      
+      // Finde die aktuelle Position des Elements
+      const currentElement = texts.find(t => t.id === selectedId);
+      const elementX = currentElement?.x || 0;
+      
+      // Maximale mögliche Breite basierend auf Position
+      const maxPossibleWidth = canvasWidth - elementX - 10; // 10px Sicherheitsabstand
+      
+      // Berechne die neue Breite mit dem vollen verfügbaren Bereich
+      const newWidth = Math.max(100, Math.min(maxPossibleWidth, resizeStartPosRef.current.width + diff));
+      
+      // Aktualisiere die Breite im Text-Element-State
+      setTexts(prevTexts => prevTexts.map(text => 
         text.id === selectedId
           ? { ...text, width: newWidth }
           : text
       ));
+      
+      // Setze die Startposition nicht zurück, um ein flüssigeres Resizing zu ermöglichen
+      resizeStartPosRef.current = {
+        x: e.clientX,
+        width: newWidth
+      };
     }
   };
 
-  const handleResizeEnd = () => {
+  const handleResizeEnd = (e: MouseEvent) => {
+    if (isResizing && selectedId) {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Behalte die endgültige Breite bei
+      const finalWidth = texts.find(t => t.id === selectedId)?.width || 300;
+      
+      // Setze den Text mit der endgültigen Breite
+      setTexts(prevTexts => prevTexts.map(text => 
+        text.id === selectedId
+          ? { ...text, width: finalWidth }
+          : text
+      ));
+    }
+    
     setIsResizing(false);
     resizeStartPosRef.current = null;
-    // Überprüfen, ob Texte zu breit sind
     checkTextOverflow();
   };
+
+  // Aktualisierte useEffect mit separatem Eventlistener für Resize
+  useEffect(() => {
+    // Für Drag-Funktionalität
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+    
+    // Für Resize-Funktionalität - nur hinzufügen wenn aktiv resizing
+    if (isResizing) {
+      window.addEventListener('mousemove', handleResizeMove);
+      window.addEventListener('mouseup', handleResizeEnd);
+    }
+    
+    return () => {
+      // Cleanup-Funktionen
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('mousemove', handleResizeMove);
+      window.removeEventListener('mouseup', handleResizeEnd);
+    };
+  }, [isDragging, isResizing, selectedId]);
 
   return (
     <div className="min-h-screen bg-gray-100 p-8">
@@ -520,7 +580,7 @@ function App() {
                   disabled={isExporting}
                 >
                   <FileDown size={20} />
-                </button>
+              </button>
               )}
               <button
                 onClick={clearAllTexts}
@@ -777,19 +837,19 @@ function App() {
                   {/* Resize-Handle für das Textfeld anzeigen wenn ausgewählt */}
                   {selectedId === text.id && !isDragging && !isExporting && (
                     <>
-                      {/* Rechter Resize-Handle */}
+                      {/* Rechter Resize-Handle mit verbesserter Sichtbarkeit */}
                       <div
-                        className="absolute top-0 right-0 bottom-0 w-4 cursor-ew-resize hover:bg-blue-200 opacity-50 hover:opacity-100 transition-opacity"
+                        className={`absolute top-0 right-0 bottom-0 w-4 cursor-ew-resize ${isResizing ? 'bg-blue-300' : 'hover:bg-blue-200'} opacity-70 hover:opacity-100 transition-colors`}
                         onMouseDown={(e) => handleResizeStart(e, text.id)}
                         style={{ touchAction: 'none' }}
                       >
                         <div className="h-full flex items-center justify-center">
-                          <div className="h-8 w-1 bg-blue-400 rounded"></div>
+                          <div className="h-16 w-1 bg-blue-500 rounded"></div>
                         </div>
                       </div>
                       
-                      {/* Breiten-Anzeige */}
-                      <div className="absolute bottom-[-18px] right-0 text-xs bg-white px-1 border border-gray-200 rounded text-gray-500">
+                      {/* Breiten-Anzeige immer sichtbar während des Resizings */}
+                      <div className={`absolute bottom-[-18px] right-0 text-xs ${isResizing ? 'bg-blue-100 text-blue-800' : 'bg-white text-gray-500'} px-1 border border-gray-200 rounded font-medium`}>
                         {text.width}px
                       </div>
                     </>

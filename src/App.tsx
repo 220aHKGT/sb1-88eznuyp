@@ -297,7 +297,7 @@ function App() {
     }
   };
 
-  // Fixed exportToPDF function with proper access to jsPDF
+  // Fixed exportToPDF function using proper html2pdf API for multi-page PDFs
   const exportToPDF = async (allPages = false) => {
     if (!canvasRef.current) {
       alert('Canvas reference is not available. Please try again.');
@@ -331,58 +331,66 @@ function App() {
       if (batchData.length > 0) {
         // If exporting all pages
         if (allPages) {
-          // Import jsPDF directly from html2pdf to avoid window access
-          // @ts-ignore - html2pdf types aren't perfect
-          const jsPDF = html2pdf.jsPDF;
-          
-          const pdf = new jsPDF({
-            orientation: 'landscape',
-            unit: 'cm',
-            format: [21.0, 9.8]
-          });
-          
-          let isFirstPage = true;
-          
-          for (let i = 0; i < batchData.length; i++) {
-            // Update progress message
-            setTexts(prev => prev.map(text => ({
-              ...text,
-              exportProgress: `Exporting page ${i + 1} of ${batchData.length}`
-            })));
-            
-            // Replace placeholders with data from current batch
-            const replacedTexts = texts.map(text => ({
-              ...text,
-              text: replacePlaceholders(text.text, batchData[i])
-            }));
-            
-            setTexts(replacedTexts);
-            
-            // Give more time for the DOM to update
-            await new Promise(resolve => setTimeout(resolve, 300));
-            
-            // Convert the current view to canvas
-            const canvas = await html2canvas(element, {
-              scale: 2,
-              width: 794,
-              height: 370,
-              logging: false
-            });
-            
-            const imgData = canvas.toDataURL('image/jpeg', 0.98);
-            
-            // For all pages after the first, add a new page before adding image
-            if (!isFirstPage) {
-              pdf.addPage();
+          // Create a temporary container for the full document
+          const tempContainer = document.createElement('div');
+          tempContainer.style.position = 'absolute';
+          tempContainer.style.left = '-9999px';
+          document.body.appendChild(tempContainer);
+
+          try {
+            // Process each batch page
+            for (let i = 0; i < batchData.length; i++) {
+              // Clone the canvas for this page
+              const pageContainer = document.createElement('div');
+              pageContainer.style.width = '794px';
+              pageContainer.style.height = '370px';
+              pageContainer.style.position = 'relative';
+              pageContainer.style.backgroundColor = 'white';
+              pageContainer.style.marginBottom = '20px'; // Space between pages
+              tempContainer.appendChild(pageContainer);
+              
+              // Create content for this page with replaced placeholders
+              const pageContent = document.createElement('div');
+              pageContent.style.position = 'absolute';
+              pageContent.style.inset = '0';
+              pageContainer.appendChild(pageContent);
+
+              // Clone and add each text element with replaced content
+              texts.forEach(text => {
+                const textElement = document.createElement('div');
+                textElement.style.position = 'absolute';
+                textElement.style.left = `${text.x}px`;
+                textElement.style.top = `${text.y}px`;
+                textElement.style.minWidth = '100px';
+                textElement.style.maxWidth = '600px';
+                textElement.style.fontSize = `${text.fontSize}px`;
+                textElement.style.fontFamily = customFont || 'system-ui';
+                textElement.style.textAlign = text.align;
+                textElement.style.fontWeight = text.bold ? 'bold' : 'normal';
+                textElement.style.fontStyle = text.italic ? 'italic' : 'normal';
+                textElement.style.lineHeight = `${text.lineHeight}`;
+                textElement.style.padding = `0 ${text.padding}px`;
+                
+                // Replace placeholders for this batch
+                textElement.innerText = replacePlaceholders(text.text, batchData[i]);
+                
+                pageContent.appendChild(textElement);
+              });
+
+              // Update progress
+              setTexts(prev => [...prev]);
             }
             
-            // Add the image to the PDF
-            pdf.addImage(imgData, 'JPEG', 0, 0, 21.0, 9.8);
-            isFirstPage = false;
+            // Now export the full document
+            await html2pdf()
+              .set(opt)
+              .from(tempContainer)
+              .save();
+              
+          } finally {
+            // Clean up
+            document.body.removeChild(tempContainer);
           }
-          
-          // Save the PDF
-          pdf.save('all-pages.pdf');
         } 
         // Just export the current page
         else {

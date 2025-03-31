@@ -297,7 +297,7 @@ function App() {
     }
   };
 
-  // Enhance the exportToPDF function with better error handling
+  // Fixed exportToPDF function to properly handle multi-page exports
   const exportToPDF = async (allPages = false) => {
     if (!canvasRef.current) {
       alert('Canvas reference is not available. Please try again.');
@@ -318,7 +318,7 @@ function App() {
           scale: 2,
           width: 794,
           height: 370,
-          logging: false, // Disable logging for cleaner console
+          logging: false,
         },
         jsPDF: { 
           unit: 'cm',
@@ -331,8 +331,15 @@ function App() {
       if (batchData.length > 0) {
         // If exporting all pages
         if (allPages) {
-          const worker = html2pdf().set(opt);
-          let first = true;
+          // We need to use jsPDF directly for multi-page PDFs
+          const { jsPDF } = window.html2pdf().worker;
+          const pdf = new jsPDF({
+            orientation: 'landscape',
+            unit: 'cm',
+            format: [21.0, 9.8]
+          });
+          
+          let isFirstPage = true;
           
           for (let i = 0; i < batchData.length; i++) {
             // Replace placeholders with data from current batch
@@ -344,18 +351,30 @@ function App() {
             setTexts(replacedTexts);
             
             // Give more time for the DOM to update
-            await new Promise(resolve => setTimeout(resolve, 200));
+            await new Promise(resolve => setTimeout(resolve, 300));
             
-            if (first) {
-              await worker.from(element).toPdf();
-              first = false;
-            } else {
-              await worker.addPage();
-              await worker.from(element).toPdf();
+            // Convert the current view to canvas
+            const canvas = await html2canvas(element, {
+              scale: 2,
+              width: 794,
+              height: 370,
+              logging: false
+            });
+            
+            const imgData = canvas.toDataURL('image/jpeg', 0.98);
+            
+            // For all pages after the first, add a new page before adding image
+            if (!isFirstPage) {
+              pdf.addPage();
             }
+            
+            // Add the image to the PDF
+            pdf.addImage(imgData, 'JPEG', 0, 0, 21.0, 9.8);
+            isFirstPage = false;
           }
           
-          await worker.save();
+          // Save the PDF
+          pdf.save('all-pages.pdf');
         } 
         // Just export the current page
         else {

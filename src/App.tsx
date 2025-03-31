@@ -38,6 +38,7 @@ function App() {
   const [batchData, setBatchData] = useState<BatchData[]>([]);
   const [currentBatchIndex, setCurrentBatchIndex] = useState(0);
   const [isExporting, setIsExporting] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false); // Add this new state variable
   const [availablePlaceholders, setAvailablePlaceholders] = useState<string[]>([]);
   const canvasRef = useRef<HTMLDivElement>(null);
   const dragStartPosRef = useRef<{ x: number; y: number } | null>(null);
@@ -342,8 +343,14 @@ function App() {
           await new Promise(resolve => setTimeout(resolve, 200));
         }
         
+        // Hide loading indicator during capture
+        setIsCapturing(true);
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
         // Export current view
         await html2pdf().set(opt).from(element).save();
+        
+        setIsCapturing(false);
       } 
       // Multi-page export
       else {
@@ -371,15 +378,21 @@ function App() {
           // Allow time for rendering
           await new Promise(resolve => setTimeout(resolve, 500));
           
+          // Hide loading indicator during capture
+          setIsCapturing(true);
+          await new Promise(resolve => setTimeout(resolve, 50));
+          
           // Capture the current state as an image
           const canvas = await html2canvas(element, {
             scale: 2,
             width: 794,
             height: 370,
-            logging: true,
+            logging: false,
             backgroundColor: '#ffffff',
             useCORS: true
           });
+          
+          setIsCapturing(false);
           
           // Convert to image data
           const imgData = canvas.toDataURL('image/jpeg', 1.0);
@@ -403,6 +416,7 @@ function App() {
       // Reset texts to their original state
       setTexts(originalTexts);
       setIsExporting(false);
+      setIsCapturing(false);
     }
   };
 
@@ -702,7 +716,7 @@ function App() {
                 </div>
               </div>
             ))}
-            {isExporting && (
+            {isExporting && !isCapturing && (
               <div className="absolute inset-0 bg-white bg-opacity-50 flex items-center justify-center">
                 <div className="text-lg font-semibold text-gray-700">Generating PDF...</div>
               </div>

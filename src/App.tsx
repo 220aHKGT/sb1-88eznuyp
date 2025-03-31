@@ -299,7 +299,7 @@ function App() {
     }
   };
 
-  // Komplett überarbeitete exportToPDF-Funktion mit Vektortexten
+  // Fix exportToPDF function to use correct text alignment methods
   const exportToPDF = async (allPages = false) => {
     if (!canvasRef.current) {
       alert('Canvas reference is not available. Please try again.');
@@ -317,14 +317,7 @@ function App() {
         unit: 'mm',
         format: [210, 98], // A4 Querformat, angepasste Höhe
         compress: false,
-        precision: 16
       });
-      
-      // Standard-Schriftarten hinzufügen für Text-Vektor-Rendering
-      pdf.addFont('helvetica', 'normal');
-      pdf.addFont('helvetica', 'bold');
-      pdf.addFont('helvetica', 'italic');
-      pdf.addFont('helvetica', 'bolditalic');
       
       // Bestimme die zu exportierenden Seiten
       const pagesToExport = allPages && batchData.length > 0
@@ -389,18 +382,21 @@ function App() {
           textLines.forEach(line => {
             // Text zentriert oder rechtsbündig ausrichten
             let xPos = x;
+            let alignmentOptions = {};
+            
             if (text.align === 'center') {
               xPos = x + (maxWidth / 2);
-              pdf.setTextAlign('center');
+              alignmentOptions = { align: 'center' };
             } else if (text.align === 'right') {
               xPos = x + maxWidth;
-              pdf.setTextAlign('right');
+              alignmentOptions = { align: 'right' };
             } else {
-              pdf.setTextAlign('left');
+              alignmentOptions = { align: 'left' };
             }
             
             // Text mit Padding hinzufügen
-            pdf.text(line, xPos + (text.padding * 0.264), yOffset);
+            const xWithPadding = xPos + (text.padding * 0.264);
+            pdf.text(line, xWithPadding, yOffset, alignmentOptions);
             
             // Y-Position für die nächste Zeile anpassen
             yOffset += (text.fontSize * 0.352 * text.lineHeight);

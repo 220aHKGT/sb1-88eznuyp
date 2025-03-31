@@ -43,7 +43,7 @@ function App() {
   const canvasRef = useRef<HTMLDivElement>(null);
   const dragStartPosRef = useRef<{ x: number; y: number } | null>(null);
   const textRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
-  const [canvasWidth, setCanvasWidth] = useState(794);
+  const [maxTextWidth, setMaxTextWidth] = useState(600);
   const [isResizing, setIsResizing] = useState(false);
   const resizeStartXRef = useRef<number | null>(null);
 
@@ -469,8 +469,8 @@ function App() {
   const handleResizeMove = (e: MouseEvent) => {
     if (isResizing && resizeStartXRef.current !== null) {
       const diff = e.clientX - resizeStartXRef.current;
-      const newWidth = Math.max(400, Math.min(1200, canvasWidth + diff));
-      setCanvasWidth(newWidth);
+      const newWidth = Math.max(200, Math.min(700, maxTextWidth + diff));
+      setMaxTextWidth(newWidth);
       resizeStartXRef.current = e.clientX;
     }
   };
@@ -478,7 +478,7 @@ function App() {
   const handleResizeEnd = () => {
     setIsResizing(false);
     resizeStartXRef.current = null;
-    // Überprüfen, ob Elemente außerhalb des sichtbaren Bereichs sind
+    // Überprüfen, ob Texte zu breit sind
     checkTextOverflow();
   };
 
@@ -690,8 +690,8 @@ function App() {
           </div>
 
           <div className="mb-2 flex items-center">
-            <span className="text-sm text-gray-600 mr-2">Textfenster-Breite:</span>
-            <span className="text-sm font-medium">{canvasWidth}px</span>
+            <span className="text-sm text-gray-600 mr-2">Maximale Textbreite:</span>
+            <span className="text-sm font-medium">{maxTextWidth}px</span>
           </div>
 
           <div className="relative">
@@ -699,7 +699,7 @@ function App() {
               ref={canvasRef}
               className="relative border-2 border-gray-200 rounded-lg bg-white overflow-hidden"
               style={{
-                width: `${canvasWidth}px`,
+                width: '794px', // Feste Canvas-Breite
                 height: '370px'
               }}
             >
@@ -714,7 +714,7 @@ function App() {
                     left: `${text.x}px`,
                     top: `${text.y}px`,
                     minWidth: '100px',
-                    maxWidth: '600px', // Prevent text from extending too far
+                    maxWidth: `${maxTextWidth}px`, // Hier verwenden wir die anpassbare maxTextWidth
                     fontSize: `${text.fontSize}px`,
                     fontFamily: customFont || 'system-ui',
                     textAlign: text.align,
@@ -771,22 +771,22 @@ function App() {
               )}
             </div>
             
-            {/* Resize-Handle hinzufügen */}
+            {/* Resize-Handle für Textbreite */}
             <div 
-              className="absolute top-0 right-0 bottom-0 w-4 cursor-ew-resize hover:bg-blue-200 opacity-50 hover:opacity-100 transition-opacity"
+              className="absolute top-2 right-6 px-2 py-1 bg-gray-100 border border-gray-300 rounded flex items-center cursor-ew-resize"
               onMouseDown={handleResizeStart}
               style={{
                 touchAction: 'none'
               }}
             >
-              <div className="h-full flex items-center justify-center">
-                <div className="h-8 w-1 bg-gray-400 rounded"></div>
-              </div>
+              <span className="text-xs text-gray-700 mr-1">Textbreite</span>
+              <div className="h-4 w-1 bg-gray-400 rounded mx-px"></div>
+              <div className="h-4 w-1 bg-gray-400 rounded mx-px"></div>
             </div>
             
-            {/* Breite-Anzeiger am unteren Rand */}
-            <div className="absolute bottom-[-20px] left-0 right-0 text-xs text-gray-500 text-center">
-              {isResizing ? `${canvasWidth}px` : ''}
+            {/* Breite-Anzeiger */}
+            <div className="absolute top-2 right-6 text-xs text-blue-600 font-medium">
+              {isResizing ? `${maxTextWidth}px` : ''}
             </div>
           </div>
 

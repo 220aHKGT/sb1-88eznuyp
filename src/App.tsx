@@ -299,7 +299,7 @@ function App() {
     }
   };
 
-  // Fix PDF export function to use imported jsPDF
+  // Updated exportToPDF function with higher DPI settings
   const exportToPDF = async (allPages = false) => {
     if (!canvasRef.current) {
       alert('Canvas reference is not available. Please try again.');
@@ -313,20 +313,24 @@ function App() {
     try {
       // Single page export (either no batch data or just current page)
       if (!allPages || batchData.length === 0) {
-        // Configure PDF options for single page
+        // Configure PDF options for single page with higher DPI
         const opt = {
           margin: 0,
           filename: 'text-editor-export.pdf',
-          image: { type: 'jpeg', quality: 0.98 },
+          image: { type: 'jpeg', quality: 1.0 }, // Increased quality to maximum
           html2canvas: { 
-            scale: 2,
+            scale: 4, // Increased scale for higher DPI
             width: 794,
             height: 370,
+            useCORS: true,
+            imageTimeout: 0, // No timeout for image loading
+            backgroundColor: '#ffffff'
           },
           jsPDF: { 
             unit: 'cm',
             format: [21.0, 9.8],
-            orientation: 'landscape' 
+            orientation: 'landscape',
+            compress: false // Better quality without compression
           }
         };
 
@@ -347,21 +351,23 @@ function App() {
         setIsCapturing(true);
         await new Promise(resolve => setTimeout(resolve, 50));
         
-        // Export current view
+        // Export current view with higher quality
         await html2pdf().set(opt).from(element).save();
         
         setIsCapturing(false);
       } 
       // Multi-page export
       else {
-        // Create new PDF with jsPDF
+        // Create new PDF with jsPDF with higher quality settings
         const pdf = new jsPDF({
           orientation: 'landscape',
           unit: 'cm',
-          format: [21.0, 9.8]
+          format: [21.0, 9.8],
+          compress: false, // Better quality without compression
+          precision: 16 // Higher precision
         });
         
-        // Process each page separately using the actual canvas
+        // Process each page separately
         for (let i = 0; i < batchData.length; i++) {
           // Display progress
           const progressMsg = `Exporting page ${i+1}/${batchData.length}`;
@@ -382,19 +388,20 @@ function App() {
           setIsCapturing(true);
           await new Promise(resolve => setTimeout(resolve, 50));
           
-          // Capture the current state as an image
+          // Capture the current state as an image with higher DPI
           const canvas = await html2canvas(element, {
-            scale: 2,
+            scale: 4, // Increased scale for higher DPI
             width: 794,
             height: 370,
             logging: false,
             backgroundColor: '#ffffff',
-            useCORS: true
+            useCORS: true,
+            imageTimeout: 0 // No timeout for image loading
           });
           
           setIsCapturing(false);
           
-          // Convert to image data
+          // Convert to image data with maximum quality
           const imgData = canvas.toDataURL('image/jpeg', 1.0);
           
           // Add page for all but the first page
@@ -402,8 +409,8 @@ function App() {
             pdf.addPage();
           }
           
-          // Add image to PDF
-          pdf.addImage(imgData, 'JPEG', 0, 0, 21.0, 9.8);
+          // Add image to PDF with highest quality
+          pdf.addImage(imgData, 'JPEG', 0, 0, 21.0, 9.8, undefined, 'FAST');
         }
         
         // Save the PDF

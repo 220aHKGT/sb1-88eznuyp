@@ -3,6 +3,7 @@ import { Move, Type, Trash2, Upload, MinusCircle, PlusCircle, AlignLeft, AlignCe
 import html2pdf from 'html2pdf.js';
 import html2canvas from 'html2canvas';
 import Papa from 'papaparse';
+import { jsPDF } from 'jspdf'; // Import jsPDF properly
 
 interface TextElement {
   id: string;
@@ -297,7 +298,7 @@ function App() {
     }
   };
 
-  // Completely revised exportToPDF function to fix empty PDF issue
+  // Fix PDF export function to use imported jsPDF
   const exportToPDF = async (allPages = false) => {
     if (!canvasRef.current) {
       alert('Canvas reference is not available. Please try again.');
@@ -346,8 +347,7 @@ function App() {
       } 
       // Multi-page export
       else {
-        // For multi-page exports, we'll use jsPDF directly with html2canvas
-        const { jsPDF } = require('jspdf');
+        // Create new PDF with jsPDF
         const pdf = new jsPDF({
           orientation: 'landscape',
           unit: 'cm',
@@ -376,7 +376,7 @@ function App() {
             scale: 2,
             width: 794,
             height: 370,
-            logging: true, // Enable logging for debugging
+            logging: true,
             backgroundColor: '#ffffff',
             useCORS: true
           });

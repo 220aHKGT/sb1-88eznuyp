@@ -4,8 +4,6 @@ import html2pdf from 'html2pdf.js';
 import html2canvas from 'html2canvas';
 import Papa from 'papaparse';
 import { jsPDF } from 'jspdf'; // Import jsPDF properly
-// Add this import for font support
-import 'jspdf-autotable';
 
 interface TextElement {
   id: string;

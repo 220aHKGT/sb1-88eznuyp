@@ -297,7 +297,7 @@ function App() {
     }
   };
 
-  // Fixed exportToPDF function to properly handle multi-page exports
+  // Fixed exportToPDF function with proper access to jsPDF
   const exportToPDF = async (allPages = false) => {
     if (!canvasRef.current) {
       alert('Canvas reference is not available. Please try again.');
@@ -331,8 +331,10 @@ function App() {
       if (batchData.length > 0) {
         // If exporting all pages
         if (allPages) {
-          // We need to use jsPDF directly for multi-page PDFs
-          const { jsPDF } = window.html2pdf().worker;
+          // Import jsPDF directly from html2pdf to avoid window access
+          // @ts-ignore - html2pdf types aren't perfect
+          const jsPDF = html2pdf.jsPDF;
+          
           const pdf = new jsPDF({
             orientation: 'landscape',
             unit: 'cm',
@@ -342,6 +344,12 @@ function App() {
           let isFirstPage = true;
           
           for (let i = 0; i < batchData.length; i++) {
+            // Update progress message
+            setTexts(prev => prev.map(text => ({
+              ...text,
+              exportProgress: `Exporting page ${i + 1} of ${batchData.length}`
+            })));
+            
             // Replace placeholders with data from current batch
             const replacedTexts = texts.map(text => ({
               ...text,

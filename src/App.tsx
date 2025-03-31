@@ -557,6 +557,88 @@ function App() {
     };
   }, [isDragging, isResizing, selectedId]);
 
+  // Komplett überarbeitete Resize-Funktionen für dauerhaftes Beibehalten der Größe
+  const handleResizeStart = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    
+    setSelectedId(id);
+    setIsResizing(true);
+    
+    const textElement = texts.find(text => text.id === id);
+    if (textElement) {
+      resizeStartPosRef.current = {
+        x: e.clientX,
+        width: textElement.width
+      };
+    }
+  };
+
+  const handleResizeMove = (e: MouseEvent) => {
+    if (isResizing && selectedId && resizeStartPosRef.current && canvasRef.current) {
+      e.preventDefault();
+      
+      // Berechne die absolute Breitenänderung
+      const diff = e.clientX - resizeStartPosRef.current.x;
+      
+      // Berechne verfügbare Breite
+      const canvasWidth = canvasRef.current.clientWidth;
+      const currentElement = texts.find(t => t.id === selectedId);
+      const elementX = currentElement?.x || 0;
+      const maxWidth = canvasWidth - elementX - 5;
+      
+      // Neue Breite mit Beschränkungen
+      const newWidth = Math.max(100, Math.min(maxWidth, resizeStartPosRef.current.width + diff));
+      
+      // Aktualisiere die Breite direkt im State
+      const updatedTexts = texts.map(text => 
+        text.id === selectedId ? { ...text, width: newWidth } : text
+      );
+      
+      setTexts(updatedTexts);
+    }
+  };
+
+  const handleResizeEnd = () => {
+    setIsResizing(false);
+    resizeStartPosRef.current = null;
+    
+    // Warte kurz und prüfe dann auf Overflow
+    setTimeout(() => {
+      checkTextOverflow();
+    }, 100);
+  };
+
+  // Vereinfachte useEffect-Hook für besseres Event-Handling
+  useEffect(() => {
+    const handleMouseMoveWrapper = (e: MouseEvent) => {
+      if (isDragging) {
+        handleMouseMove(e);
+      } else if (isResizing) {
+        handleResizeMove(e);
+      }
+    };
+
+    const handleMouseUpWrapper = (e: MouseEvent) => {
+      if (isDragging) {
+        handleMouseUp();
+      } else if (isResizing) {
+        handleResizeEnd();
+      }
+    };
+
+    // Füge Event-Listener nur hinzu, wenn eine Aktion aktiv ist
+    if (isDragging || isResizing) {
+      window.addEventListener('mousemove', handleMouseMoveWrapper);
+      window.addEventListener('mouseup', handleMouseUpWrapper);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMoveWrapper);
+      window.removeEventListener('mouseup', handleMouseUpWrapper);
+    };
+  }, [isDragging, isResizing, selectedId, texts]);
+
   return (
     <div className="min-h-screen bg-gray-100 p-8">
       <div className="max-w-6xl mx-auto">

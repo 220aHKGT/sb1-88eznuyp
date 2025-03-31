@@ -17,6 +17,7 @@ interface TextElement {
   lineHeight: number;
   padding: number;
   isOverflowing?: boolean;
+  width: number; // Neue Eigenschaft für individuelle Textfeld-Breite
 }
 
 interface BatchData {
@@ -43,10 +44,9 @@ function App() {
   const canvasRef = useRef<HTMLDivElement>(null);
   const dragStartPosRef = useRef<{ x: number; y: number } | null>(null);
   const textRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
-  const [maxTextWidth, setMaxTextWidth] = useState(600);
   const [isResizing, setIsResizing] = useState(false);
-  const resizeStartXRef = useRef<number | null>(null);
-
+  const resizeStartPosRef = useRef<{ x: number, width: number } | null>(null);
+  
   // Add a state for storing the font data
   const [fontData, setFontData] = useState<{ data: string, name: string } | null>(null);
 
@@ -132,6 +132,7 @@ function App() {
         italic: isItalic,
         lineHeight,
         padding,
+        width: 300, // Default Textfeld-Breite
       };
       const newTexts = [...texts, newElement];
       setTexts(newTexts);
@@ -152,6 +153,7 @@ function App() {
         italic: isItalic,
         lineHeight,
         padding,
+        width: 300, // Default Textfeld-Breite
       };
       const newTexts = [...texts, newElement];
       setTexts(newTexts);
@@ -460,24 +462,37 @@ function App() {
   const selectedText = texts.find(text => text.id === selectedId);
 
   // Neue Funktionen für das Resize-Feature
-  const handleResizeStart = (e: React.MouseEvent) => {
+  const handleResizeStart = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation(); // Verhindert das Auslösen des Drag-Events
     e.preventDefault();
+    
     setIsResizing(true);
-    resizeStartXRef.current = e.clientX;
+    
+    const textElement = texts.find(text => text.id === id);
+    if (textElement) {
+      resizeStartPosRef.current = {
+        x: e.clientX,
+        width: textElement.width
+      };
+    }
   };
 
   const handleResizeMove = (e: MouseEvent) => {
-    if (isResizing && resizeStartXRef.current !== null) {
-      const diff = e.clientX - resizeStartXRef.current;
-      const newWidth = Math.max(200, Math.min(700, maxTextWidth + diff));
-      setMaxTextWidth(newWidth);
-      resizeStartXRef.current = e.clientX;
+    if (isResizing && selectedId && resizeStartPosRef.current) {
+      const diff = e.clientX - resizeStartPosRef.current.x;
+      const newWidth = Math.max(100, Math.min(700, resizeStartPosRef.current.width + diff));
+      
+      setTexts(texts.map(text => 
+        text.id === selectedId
+          ? { ...text, width: newWidth }
+          : text
+      ));
     }
   };
 
   const handleResizeEnd = () => {
     setIsResizing(false);
-    resizeStartXRef.current = null;
+    resizeStartPosRef.current = null;
     // Überprüfen, ob Texte zu breit sind
     checkTextOverflow();
   };
@@ -689,11 +704,6 @@ function App() {
             </div>
           </div>
 
-          <div className="mb-2 flex items-center">
-            <span className="text-sm text-gray-600 mr-2">Maximale Textbreite:</span>
-            <span className="text-sm font-medium">{maxTextWidth}px</span>
-          </div>
-
           <div className="relative">
             <div
               ref={canvasRef}
@@ -714,7 +724,7 @@ function App() {
                     left: `${text.x}px`,
                     top: `${text.y}px`,
                     minWidth: '100px',
-                    maxWidth: `${maxTextWidth}px`, // Hier verwenden wir die anpassbare maxTextWidth
+                    width: `${text.width}px`, // Verwende individuelle Textfeldbreite
                     fontSize: `${text.fontSize}px`,
                     fontFamily: customFont || 'system-ui',
                     textAlign: text.align,
@@ -722,6 +732,7 @@ function App() {
                     fontStyle: text.italic ? 'italic' : 'normal',
                     lineHeight: text.lineHeight,
                     padding: `0 ${text.padding}px`,
+                    position: 'absolute', // Sicherstellen, dass es absolut positioniert ist
                   }}
                   onMouseDown={(e) => handleMouseDown(text.id, e)}
                   ref={(el) => textRefs.current[text.id] = el}
@@ -762,6 +773,27 @@ function App() {
                       ? replacePlaceholders(text.text, batchData[currentBatchIndex])
                       : text.text}
                   </div>
+                  
+                  {/* Resize-Handle für das Textfeld anzeigen wenn ausgewählt */}
+                  {selectedId === text.id && !isDragging && !isExporting && (
+                    <>
+                      {/* Rechter Resize-Handle */}
+                      <div
+                        className="absolute top-0 right-0 bottom-0 w-4 cursor-ew-resize hover:bg-blue-200 opacity-50 hover:opacity-100 transition-opacity"
+                        onMouseDown={(e) => handleResizeStart(e, text.id)}
+                        style={{ touchAction: 'none' }}
+                      >
+                        <div className="h-full flex items-center justify-center">
+                          <div className="h-8 w-1 bg-blue-400 rounded"></div>
+                        </div>
+                      </div>
+                      
+                      {/* Breiten-Anzeige */}
+                      <div className="absolute bottom-[-18px] right-0 text-xs bg-white px-1 border border-gray-200 rounded text-gray-500">
+                        {text.width}px
+                      </div>
+                    </>
+                  )}
                 </div>
               ))}
               {isExporting && !isCapturing && (
@@ -769,24 +801,6 @@ function App() {
                   <div className="text-lg font-semibold text-gray-700">Generating PDF...</div>
                 </div>
               )}
-            </div>
-            
-            {/* Resize-Handle für Textbreite */}
-            <div 
-              className="absolute top-2 right-6 px-2 py-1 bg-gray-100 border border-gray-300 rounded flex items-center cursor-ew-resize"
-              onMouseDown={handleResizeStart}
-              style={{
-                touchAction: 'none'
-              }}
-            >
-              <span className="text-xs text-gray-700 mr-1">Textbreite</span>
-              <div className="h-4 w-1 bg-gray-400 rounded mx-px"></div>
-              <div className="h-4 w-1 bg-gray-400 rounded mx-px"></div>
-            </div>
-            
-            {/* Breite-Anzeiger */}
-            <div className="absolute top-2 right-6 text-xs text-blue-600 font-medium">
-              {isResizing ? `${maxTextWidth}px` : ''}
             </div>
           </div>
 

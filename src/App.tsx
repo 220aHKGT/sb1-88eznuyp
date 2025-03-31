@@ -4,6 +4,8 @@ import html2pdf from 'html2pdf.js';
 import html2canvas from 'html2canvas';
 import Papa from 'papaparse';
 import { jsPDF } from 'jspdf'; // Import jsPDF properly
+// Add this import for font support
+import 'jspdf-autotable';
 
 interface TextElement {
   id: string;
@@ -44,6 +46,9 @@ function App() {
   const dragStartPosRef = useRef<{ x: number; y: number } | null>(null);
   const textRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
+  // Add a state for storing the font data
+  const [fontData, setFontData] = useState<{ data: string, name: string } | null>(null);
+
   const handleFontUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -55,6 +60,13 @@ function App() {
             const fontFace = new FontFace('CustomFont', `url(${result})`);
             const loadedFont = await fontFace.load();
             (document.fonts as FontFaceSet).add(loadedFont);
+            
+            // Store the font data for PDF export
+            setFontData({
+              data: result,
+              name: 'CustomFont'
+            });
+            
             setCustomFont('CustomFont');
           }
         } catch (error) {
@@ -299,7 +311,7 @@ function App() {
     }
   };
 
-  // Fix exportToPDF function to use correct text alignment methods
+  // Updated exportToPDF function to use custom fonts
   const exportToPDF = async (allPages = false) => {
     if (!canvasRef.current) {
       alert('Canvas reference is not available. Please try again.');
@@ -311,107 +323,109 @@ function App() {
     const originalTexts = [...texts];
     
     try {
-      // PDF-Dokument erstellen
-      const pdf = new jsPDF({
-        orientation: 'landscape',
-        unit: 'mm',
-        format: [210, 98], // A4 Querformat, angepasste Höhe
-        compress: false,
-      });
+      // Since we can't easily use the custom font in vector format,
+      // we'll use image-based export for the best visual fidelity
       
-      // Bestimme die zu exportierenden Seiten
-      const pagesToExport = allPages && batchData.length > 0
-        ? batchData
-        : batchData.length > 0 
-          ? [batchData[currentBatchIndex]]
-          : [null]; // Eine Seite ohne Batch-Daten
+      // Configure PDF options
+      const opt = {
+        margin: 0,
+        filename: allPages ? 'all-pages.pdf' : 'text-editor-export.pdf',
+        image: { type: 'jpeg', quality: 1.0 },
+        html2canvas: { 
+          scale: 4, // Higher scale for better quality
+          width: 794,
+          height: 370,
+          backgroundColor: '#ffffff',
+          logging: false,
+          useCORS: true,
+          imageTimeout: 5000 // Longer timeout to ensure font rendering
+        },
+        jsPDF: { 
+          unit: 'mm',
+          format: [210, 98],
+          orientation: 'landscape',
+          compress: false
+        }
+      };
       
-      // Canvas-Hintergrund einfügen, um das Design zu erhalten
+      // Hide controls during capture
       setIsCapturing(true);
-      const canvas = await html2canvas(element, {
-        scale: 4,
-        backgroundColor: '#ffffff',
-        logging: false
-      });
-      setIsCapturing(false);
       
-      // PDF für jede Seite erstellen
-      for (let i = 0; i < pagesToExport.length; i++) {
-        const currentData = pagesToExport[i];
+      // For batch processing of multiple pages
+      if (allPages && batchData.length > 0) {
+        // Create a PDF document
+        const pdf = new jsPDF({
+          orientation: 'landscape',
+          unit: 'mm',
+          format: [210, 98]
+        });
         
-        // Bei mehreren Seiten neue Seite hinzufügen (außer bei der ersten Seite)
-        if (i > 0) {
-          pdf.addPage();
-        }
+        let isFirstPage = true;
         
-        // Weißen Hintergrund hinzufügen
-        pdf.setFillColor(255, 255, 255);
-        pdf.rect(0, 0, 210, 98, 'F');
-        
-        // Füge alle Textelemente als Vektoren hinzu
-        for (const text of texts) {
-          // Platzhalter ersetzen, wenn Batch-Daten vorhanden sind
-          const renderedText = currentData 
-            ? replacePlaceholders(text.text, currentData) 
-            : text.text;
-            
-          // Keine leeren Texte rendern
-          if (!renderedText.trim()) continue;
+        for (let i = 0; i < batchData.length; i++) {
+          // Update text with current batch data
+          const replacedTexts = texts.map(text => ({
+            ...text,
+            text: replacePlaceholders(text.text, batchData[i])
+          }));
           
-          // Schriftart-Stil basierend auf bold/italic setzen
-          let fontStyle = 'normal';
-          if (text.bold && text.italic) fontStyle = 'bolditalic';
-          else if (text.bold) fontStyle = 'bold';
-          else if (text.italic) fontStyle = 'italic';
+          setTexts(replacedTexts);
           
-          pdf.setFont('helvetica', fontStyle);
-          pdf.setFontSize(text.fontSize * 0.75); // Skalieren für bessere Größenanpassung
+          // Allow DOM to update
+          await new Promise(resolve => setTimeout(resolve, 300));
           
-          // Textfarbe auf Schwarz setzen
-          pdf.setTextColor(0, 0, 0);
-          
-          // Position berechnen (mm statt px)
-          const x = text.x * 210 / 794; // umrechnen in mm
-          const y = text.y * 98 / 370; // umrechnen in mm
-          const maxWidth = 600 * 210 / 794; // max. Breite in mm
-          
-          // Text mit Ausrichtung hinzufügen
-          const textLines = renderedText.split('\n');
-          let yOffset = y + (text.fontSize * 0.352); // Ungefährer Offset für erste Textzeile
-          
-          textLines.forEach(line => {
-            // Text zentriert oder rechtsbündig ausrichten
-            let xPos = x;
-            let alignmentOptions = {};
-            
-            if (text.align === 'center') {
-              xPos = x + (maxWidth / 2);
-              alignmentOptions = { align: 'center' };
-            } else if (text.align === 'right') {
-              xPos = x + maxWidth;
-              alignmentOptions = { align: 'right' };
-            } else {
-              alignmentOptions = { align: 'left' };
-            }
-            
-            // Text mit Padding hinzufügen
-            const xWithPadding = xPos + (text.padding * 0.264);
-            pdf.text(line, xWithPadding, yOffset, alignmentOptions);
-            
-            // Y-Position für die nächste Zeile anpassen
-            yOffset += (text.fontSize * 0.352 * text.lineHeight);
+          // Capture the current state as a high-resolution image
+          const canvas = await html2canvas(element, {
+            scale: 4,
+            width: 794,
+            height: 370,
+            backgroundColor: '#ffffff',
+            logging: false,
+            useCORS: true
           });
+          
+          // Get image data
+          const imgData = canvas.toDataURL('image/jpeg', 1.0);
+          
+          // Add new page for all pages except the first
+          if (!isFirstPage) {
+            pdf.addPage();
+          }
+          
+          // Add the image to the PDF
+          pdf.addImage(imgData, 'JPEG', 0, 0, 210, 98);
+          isFirstPage = false;
+          
+          // Log progress
+          console.log(`Processed page ${i+1} of ${batchData.length}`);
         }
-      }
-      
-      // PDF speichern
-      pdf.save(allPages ? 'all-pages.pdf' : 'text-editor-export.pdf');
         
+        // Save the PDF
+        pdf.save('all-pages.pdf');
+      } 
+      // For exporting single page
+      else {
+        if (batchData.length > 0) {
+          // Replace placeholders with data from current batch
+          const replacedTexts = texts.map(text => ({
+            ...text,
+            text: replacePlaceholders(text.text, batchData[currentBatchIndex])
+          }));
+          
+          setTexts(replacedTexts);
+          
+          // Allow DOM to update
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+        
+        // Export current page
+        await html2pdf().set(opt).from(element).save();
+      }
     } catch (error) {
       console.error('Error exporting to PDF:', error);
       alert(`Error exporting to PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
-      // Originalen Textzustand wiederherstellen
+      // Reset to original state
       setTexts(originalTexts);
       setIsExporting(false);
       setIsCapturing(false);

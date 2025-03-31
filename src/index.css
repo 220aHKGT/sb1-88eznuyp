@@ -1,0 +1,11 @@
+@font-face {
+  font-family: 'LiebeHeide';
+  src: url('https://db.onlinewebfonts.com/t/1c094bd590b1c6789f2d9fc05f4c435a.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

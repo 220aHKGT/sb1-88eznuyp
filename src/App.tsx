@@ -190,6 +190,7 @@ function App() {
     setTexts(newTexts);
   };
 
+  // Add key handler for Escape key to cancel editing
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -215,6 +216,10 @@ function App() {
           setTexts(newTexts);
         }
       }
+    } else if (e.key === 'Escape') {
+      // Lose focus on Escape
+      (e.target as HTMLElement).blur();
+      e.preventDefault();
     }
   };
 
@@ -250,473 +255,468 @@ function App() {
     }
   };
 
+  // Improved placeholder replacement with better error handling
   const replacePlaceholders = (text: string, data: BatchData) => {
-    return text.replace(/\{\{(\w+)\}\}/g, (match, key) => data[key] || match);
+    if (!data) return text;
+    return text.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+      return data[key] !== undefined ? data[key] : `[${key}]`;
+    });
   };
 
-  const exportToPDF = async (allPages = false) => {
-    if (canvasRef.current && batchData.length > 0) {
-      setIsExporting(true);
-      const element = canvasRef.current;lTexts = [...texts];
-      const opt = {
-        margin: 0,
-        filename: allPages ? 'all-pages.pdf' : 'batch-export.pdf',ollen
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { le eine temporäre Kopie des Canvas-Elements für den Export
-          scale: 2,ontainer = document.createElement('div');
-          width: 794,er.style.position = 'absolute';
-          height: 370tempContainer.style.left = '-9999px';
-        },tainer.style.width = '794px';
-        jsPDF: { er.style.height = '370px';
-          unit: 'cm',Child(tempContainer);
-          format: [21.0, 9.8],
-          orientation: 'landscape' // PDF-Optionen
-        }  const opt = {
-      };            margin: 0,
- filename: 'all-pages.pdf',
-      try {y: 0.98 },
-        const originalTexts = [...texts];
-        const worker = html2pdf().set(opt);
-        let first = true;              unit: 'cm',
-
-        // If allPages is true, export all pages at once
-        const pagesToExport = allPages ? batchData : [batchData[currentBatchIndex]];            }
-
-        for (let i = 0; i < pagesToExport.length; i++) {
-          const replacedTexts = texts.map(text => ({e ein PDF-Dokument
-            ...text,
-            text: replacePlaceholders(text.text, pagesToExport[i])ientation: 'landscape',
-          }));
-          setTexts(replacedTexts);  format: [21.0, 9.8]
-          
-          await new Promise(resolve => setTimeout(resolve, 100));
-          age = true;
-          if (first) {
-            await worker.from(element).toPdf();e im Batch-Daten
-            first = false; i = 0; i < batchData.length; i++) {
-          } else {des aktuellen Canvas mit ersetzten Platzhalterwerten
-            await worker.addPage();
-            await worker.from(element).toPdf(); const clonedElement = element.cloneNode(true) as HTMLElement;
-          }   tempContainer.appendChild(clonedElement);
-        }            
-latzhalter im geklonten Element
-        await worker.save(); clonedElement.querySelectorAll('[data-text-id]');
-        setTexts(originalTexts);s.forEach(textEl => {
-      } catch (error) {id');
-        console.error('Error exporting to PDF:', error);
-        alert('Error exporting to PDF. Please try again.');(textObj) {
-      } finally {ditableDiv = textEl.querySelector('[contenteditable]');
-        setIsExporting(false);         if (contentEditableDiv) {
-      }v.textContent = replacePlaceholders(textObj.text, batchData[i]);
-    } else if (canvasRef.current) {
-      setIsExporting(true);
-      const element = canvasRef.current;
-      const opt = {
-            // Entferne Steuerelemente (Buttons etc.) im geklonten Element
-            const controls = clonedElement.querySelectorAll('.move-handle, button');
-            controls.forEach(control => control.remove());'jpeg', quality: 0.98 },
-            : { 
-            // Konvertiere die Seite in ein Bild und füge es zum PDF hinzu
-            const canvas = await html2canvas(clonedElement, { 
-              scale: 2,height: 370
-              width: 794,
-              height: 370,
-              logging: false
-            });
-             orientation: 'landscape'
-            const imgData = canvas.toDataURL('image/jpeg', 0.98);}
-            };
-            if (!isFirstPage) {
-              pdf.addPage();
-            }).set(opt).from(element).save();
-            
-            pdf.addImage(imgData, 'JPEG', 0, 0, 21.0, 9.8);
-            isFirstPage = false;ror exporting to PDF. Please try again.');
-          }
-           setIsExporting(false);
-          // Speichere das PDF }
-          pdf.save('all-pages.pdf');}
-            };
-          // Bereinigen
-          document.body.removeChild(tempContainer);
-        } else {ve);
-          // Exportiere nur die aktuelle SeitetListener('mouseup', handleMouseUp);
-          const opt = {
-            margin: 0,ve);
-            filename: 'batch-export.pdf',window.removeEventListener('mouseup', handleMouseUp);
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: {   }, [isDragging, selectedId, texts]);
-              scale: 2,
-              width: 794,  const selectedText = texts.find(text => text.id === selectedId);
-              height: 370
-            },
-            jsPDF: { 100 p-8">
-              unit: 'cm',
-              format: [21.0, 9.8],
-              orientation: 'landscape'6">
-            }-bold">Text Editor</h1>
-          };sName="flex gap-2">
-          
-          // Temporär die Texte mit ersetzten Platzhaltern aktualisieren
-          const replacedTexts = texts.map(text => ({:bg-gray-100 rounded-lg"
-            ...text, title="Export current page to PDF"
-            text: replacePlaceholders(text.text, batchData[currentBatchIndex])
-          }));ad size={20} />
-          
-          setTexts(replacedTexts);a.length > 0 && (
-          
-          // Warten, bis die Texte aktualisiert wurden
-          await new Promise(resolve => setTimeout(resolve, 250));ver:bg-gray-100 rounded-lg"
-          s to PDF"
-          // Exportieren disabled={isExporting}
-          await html2pdf().set(opt).from(element).save();
-          wn size={20} />
-          // Zurücksetzen auf die Originaltexte</button>
-          setTexts(originalTexts);
-        }v>
-      } catch (error) {</div>
-        console.error('Error exporting to PDF:', error);
-        alert('Error exporting to PDF. Please try again.');gap-4 mb-6">
-        setTexts(originalTexts);">
-      } finally {ssName="flex-1">
-        setIsExporting(false);
-      }
-    } else if (canvasRef.current) {
-      setIsExporting(true);ext(e.target.value)}
-      const element = canvasRef.current;
-      const opt = {className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-        margin: 0,
-        filename: 'text-editor-export.pdf',
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { 
-          scale: 2, className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-          width: 794,
-          height: 370ze={20} />
-        },t
-        jsPDF: { 
-          unit: 'cm', items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors cursor-pointer">
-          format: [21.0, 9.8],e={20} />
-          orientation: 'landscape' Font
-        }
-      };
-      ff2"
-      try {ntUpload}
-        await html2pdf().set(opt).from(element).save();className="hidden"
-      } catch (error) {
-        console.error('Error exporting to PDF:', error);
-        alert('Error exporting to PDF. Please try again.'); items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors cursor-pointer">
-      } finally {ze={20} />
-        setIsExporting(false); CSV
-      }
+  // Enhanced text overflow check with debouncing
+  const checkTextOverflow = () => {
+    if (!canvasRef.current) return;
+    
+    const canvasRect = canvasRef.current.getBoundingClientRect();
+    const canvasWidth = canvasRect.width;
+    const canvasHeight = canvasRect.height;
+    
+    const updatedTexts = texts.map(text => {
+      const textElement = textRefs.current[text.id];
+      if (!textElement) return text;
+      
+      const textRect = textElement.getBoundingClientRect();
+      const isOverflowing = 
+        text.x + textRect.width > canvasWidth || 
+        text.y + textRect.height > canvasHeight;
+      
+      return isOverflowing !== text.isOverflowing ? { ...text, isOverflowing } : text;
+    });
+    
+    // Only update if there are actual changes to avoid re-renders
+    if (JSON.stringify(updatedTexts) !== JSON.stringify(texts)) {
+      setTexts(updatedTexts);
     }
   };
-VUpload}
-  useEffect(() => {className="hidden"
+
+  // Add a function to clear all text elements
+  const clearAllTexts = () => {
+    if (window.confirm('Are you sure you want to remove all text elements?')) {
+      setTexts([]);
+      setSelectedId(null);
+    }
+  };
+
+  // Enhance the exportToPDF function with better error handling
+  const exportToPDF = async (allPages = false) => {
+    if (!canvasRef.current) {
+      alert('Canvas reference is not available. Please try again.');
+      return;
+    }
+    
+    setIsExporting(true);
+    const element = canvasRef.current;
+    const originalTexts = [...texts];
+
+    try {
+      // Configure PDF options
+      const opt = {
+        margin: 0,
+        filename: allPages ? 'all-pages.pdf' : 'batch-export.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { 
+          scale: 2,
+          width: 794,
+          height: 370,
+          logging: false, // Disable logging for cleaner console
+        },
+        jsPDF: { 
+          unit: 'cm',
+          format: [21.0, 9.8],
+          orientation: 'landscape' 
+        }
+      };
+
+      // Only process batch if we have batch data
+      if (batchData.length > 0) {
+        // If exporting all pages
+        if (allPages) {
+          const worker = html2pdf().set(opt);
+          let first = true;
+          
+          for (let i = 0; i < batchData.length; i++) {
+            // Replace placeholders with data from current batch
+            const replacedTexts = texts.map(text => ({
+              ...text,
+              text: replacePlaceholders(text.text, batchData[i])
+            }));
+            
+            setTexts(replacedTexts);
+            
+            // Give more time for the DOM to update
+            await new Promise(resolve => setTimeout(resolve, 200));
+            
+            if (first) {
+              await worker.from(element).toPdf();
+              first = false;
+            } else {
+              await worker.addPage();
+              await worker.from(element).toPdf();
+            }
+          }
+          
+          await worker.save();
+        } 
+        // Just export the current page
+        else {
+          // Replace placeholders with data from current batch
+          const replacedTexts = texts.map(text => ({
+            ...text,
+            text: replacePlaceholders(text.text, batchData[currentBatchIndex])
+          }));
+          
+          setTexts(replacedTexts);
+          
+          // Give more time for the DOM to update
+          await new Promise(resolve => setTimeout(resolve, 200));
+          
+          await html2pdf().set(opt).from(element).save();
+        }
+      } else {
+        // No batch data, just export the current view
+        await html2pdf().set({
+          ...opt,
+          filename: 'text-editor-export.pdf'
+        }).from(element).save();
+      }
+    } catch (error) {
+      console.error('Error exporting to PDF:', error);
+      alert(`Error exporting to PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      // Reset texts to their original state
+      setTexts(originalTexts);
+      setIsExporting(false);
+    }
+  };
+
+  // Fix dependency array in useEffect
+  useEffect(() => {
     window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);bel>
-    return () => {            </div>
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging, selectedId, texts]);able placeholders:</span>
-ePlaceholders.map((placeholder) => (
+  }, [isDragging, selectedId]); // Remove texts from dependency array as it causes frequent re-renders
+
+  // Use a debounced effect for checking text overflow
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      checkTextOverflow();
+    }, 100);
+    return () => clearTimeout(timeoutId);
+  }, [texts, batchData, currentBatchIndex]);
+
   const selectedText = texts.find(text => text.id === selectedId);
 
   return (
-    <div className="min-h-screen bg-gray-100 p-8"> className="px-2 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+    <div className="min-h-screen bg-gray-100 p-8">
       <div className="max-w-6xl mx-auto">
-        <div className="bg-white rounded-lg shadow-lg p-6">older}
-          <div className="flex justify-between items-center mb-6">/button>
+        <div className="bg-white rounded-lg shadow-lg p-6">
+          <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold">Text Editor</h1>
-            <div className="flex gap-2"></div>
-              <button            )}
+            <div className="flex gap-2">
+              <button
                 onClick={() => exportToPDF(false)}
-                className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg" bg-gray-50 rounded-lg">
-                title="Export current page to PDF"sName="flex items-center gap-2">
+                className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                title="Export current page to PDF"
+                disabled={isExporting}
               >
                 <Download size={20} />
-              </button>max(8, fontSize - 2);
+              </button>
               {batchData.length > 0 && (
-                <buttonif (selectedId) updateSelectedText({ fontSize: newSize });
+                <button
                   onClick={() => exportToPDF(true)}
-                  className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg" className="p-1 hover:bg-gray-200 rounded"
+                  className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
                   title="Export all pages to PDF"
-                  disabled={isExporting}ircle size={20} />
+                  disabled={isExporting}
                 >
-                  <FileDown size={20} />lassName="w-12 text-center">{selectedText?.fontSize || fontSize}px</span>
+                  <FileDown size={20} />
                 </button>
               )}
-            </div>min(72, fontSize + 2);
+              <button
+                onClick={clearAllTexts}
+                className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                title="Clear all text elements"
+              >
+                <Trash2 size={20} />
+              </button>
+            </div>
           </div>
-          if (selectedId) updateSelectedText({ fontSize: newSize });
+
           <div className="flex flex-col gap-4 mb-6">
-            <div className="flex gap-4"> className="p-1 hover:bg-gray-200 rounded"
+            <div className="flex gap-4">
               <div className="flex-1">
-                <inputrcle size={20} />
-                  type="text"tton>
-                  value={newText}              </div>
+                <input
+                  type="text"
+                  value={newText}
                   onChange={(e) => setNewText(e.target.value)}
-                  placeholder="Enter text"sName="flex items-center gap-2 border-l border-gray-300 pl-4">
+                  placeholder="Enter text"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-              </div> as const;
+              </div>
               <button
-                onClick={handleAddText}if (selectedId) updateSelectedText({ align: newAlign });
+                onClick={handleAddText}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-              > className={`p-1 rounded ${(selectedText?.align || textAlign) === 'left' ? 'bg-blue-100' : 'hover:bg-gray-200'}`}
+              >
                 <Type size={20} />
-                Add Texteft size={20} />
-              </button>n>
+                Add Text
+              </button>
               <label className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors cursor-pointer">
                 <Upload size={20} />
-                Upload Fontr' as const;
+                Upload Font
                 <input
-                  type="file"if (selectedId) updateSelectedText({ align: newAlign });
+                  type="file"
                   accept=".ttf,.otf,.woff,.woff2"
-                  onChange={handleFontUpload} className={`p-1 rounded ${(selectedText?.align || textAlign) === 'center' ? 'bg-blue-100' : 'hover:bg-gray-200'}`}
+                  onChange={handleFontUpload}
                   className="hidden"
-                />enter size={20} />
-              </label>n>
+                />
+              </label>
               <label className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors cursor-pointer">
                 <Upload size={20} />
-                Upload CSV' as const;
+                Upload CSV
                 <input
-                  type="file"if (selectedId) updateSelectedText({ align: newAlign });
+                  type="file"
                   accept=".csv"
-                  onChange={handleCSVUpload} className={`p-1 rounded ${(selectedText?.align || textAlign) === 'right' ? 'bg-blue-100' : 'hover:bg-gray-200'}`}
+                  onChange={handleCSVUpload}
                   className="hidden"
-                />ight size={20} />
-              </label>tton>
-            </div>              </div>
+                />
+              </label>
+            </div>
 
-            {availablePlaceholders.length > 0 && (sName="flex items-center gap-2 border-l border-gray-300 pl-4">
+            {availablePlaceholders.length > 0 && (
               <div className="flex flex-wrap gap-2 p-4 bg-gray-50 rounded-lg">
                 <span className="text-sm text-gray-600">Available placeholders:</span>
-                {availablePlaceholders.map((placeholder) => (Bold;
+                {availablePlaceholders.map((placeholder) => (
                   <button
-                    key={placeholder}if (selectedId) updateSelectedText({ bold: newBold });
+                    key={placeholder}
                     onClick={() => insertPlaceholder(placeholder)}
-                    className="px-2 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200" className={`p-1 rounded ${(selectedText?.bold || isBold) ? 'bg-blue-100' : 'hover:bg-gray-200'}`}
+                    className="px-2 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
                   >
-                    {placeholder}ize={20} />
-                  </button>n>
+                    {placeholder}
+                  </button>
                 ))}
               </div>
-            )}alic;
+            )}
 
-            <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">if (selectedId) updateSelectedText({ italic: newItalic });
+            <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
               <div className="flex items-center gap-2">
-                <button className={`p-1 rounded ${(selectedText?.italic || isItalic) ? 'bg-blue-100' : 'hover:bg-gray-200'}`}
+                <button
                   onClick={() => {
-                    const newSize = Math.max(8, fontSize - 2); size={20} />
-                    setFontSize(newSize);tton>
-                    if (selectedId) updateSelectedText({ fontSize: newSize });              </div>
+                    const newSize = Math.max(8, fontSize - 2);
+                    setFontSize(newSize);
+                    if (selectedId) updateSelectedText({ fontSize: newSize });
                   }}
-                  className="p-1 hover:bg-gray-200 rounded"300 pl-4">
-                >className="text-sm text-gray-600">Line Height:</span>
+                  className="p-1 hover:bg-gray-200 rounded"
+                >
                   <MinusCircle size={20} />
-                </button>ange"
+                </button>
                 <span className="w-12 text-center">{selectedText?.fontSize || fontSize}px</span>
                 <button
                   onClick={() => {
-                    const newSize = Math.min(72, fontSize + 2);t?.lineHeight || lineHeight}
+                    const newSize = Math.min(72, fontSize + 2);
                     setFontSize(newSize);
-                    if (selectedId) updateSelectedText({ fontSize: newSize });oat(e.target.value);
+                    if (selectedId) updateSelectedText({ fontSize: newSize });
                   }}
-                  className="p-1 hover:bg-gray-200 rounded"if (selectedId) updateSelectedText({ lineHeight: newLineHeight });
+                  className="p-1 hover:bg-gray-200 rounded"
                 >
-                  <PlusCircle size={20} />className="w-24"
+                  <PlusCircle size={20} />
                 </button>
-              </div>n className="text-sm w-12">{(selectedText?.lineHeight || lineHeight).toFixed(1)}</span>
               </div>
               <div className="flex items-center gap-2 border-l border-gray-300 pl-4">
-                <buttonray-300 pl-4">
-                  onClick={() => {className="text-sm text-gray-600">Padding:</span>
+                <button
+                  onClick={() => {
                     const newAlign = 'left' as const;
-                    setTextAlign(newAlign);ange"
+                    setTextAlign(newAlign);
                     if (selectedId) updateSelectedText({ align: newAlign });
                   }}
                   className={`p-1 rounded ${(selectedText?.align || textAlign) === 'left' ? 'bg-blue-100' : 'hover:bg-gray-200'}`}
-                >t?.padding || padding}
+                >
                   <AlignLeft size={20} />
-                </button>eInt(e.target.value);
-                <button
-                  onClick={() => {if (selectedId) updateSelectedText({ padding: newPadding });
-                    const newAlign = 'center' as const;
-                    setTextAlign(newAlign);className="w-24"
-                    if (selectedId) updateSelectedText({ align: newAlign });
-                  }}n className="text-sm w-12">{selectedText?.padding || padding}px</span>
-                  className={`p-1 rounded ${(selectedText?.align || textAlign) === 'center' ? 'bg-blue-100' : 'hover:bg-gray-200'}`}v>
-                >v>
-                  <AlignCenter size={20} />          </div>
                 </button>
                 <button
                   onClick={() => {
-                    const newAlign = 'right' as const;e="relative w-full h-[370px] border-2 border-gray-200 rounded-lg bg-white overflow-hidden"
+                    const newAlign = 'center' as const;
                     setTextAlign(newAlign);
                     if (selectedId) updateSelectedText({ align: newAlign });
-                  }}height: '370px'
-                  className={`p-1 rounded ${(selectedText?.align || textAlign) === 'right' ? 'bg-blue-100' : 'hover:bg-gray-200'}`} }}
+                  }}
+                  className={`p-1 rounded ${(selectedText?.align || textAlign) === 'center' ? 'bg-blue-100' : 'hover:bg-gray-200'}`}
                 >
-                  <AlignRight size={20} />.map((text) => (
+                  <AlignCenter size={20} />
+                </button>
+                <button
+                  onClick={() => {
+                    const newAlign = 'right' as const;
+                    setTextAlign(newAlign);
+                    if (selectedId) updateSelectedText({ align: newAlign });
+                  }}
+                  className={`p-1 rounded ${(selectedText?.align || textAlign) === 'right' ? 'bg-blue-100' : 'hover:bg-gray-200'}`}
+                >
+                  <AlignRight size={20} />
                 </button>
               </div>
 
               <div className="flex items-center gap-2 border-l border-gray-300 pl-4">
-                <buttonelectedId === text.id ? 'text-blue-600' : 'text-gray-800'
+                <button
                   onClick={() => {
                     const newBold = !isBold;
-                    setIsBold(newBold);,
-                    if (selectedId) updateSelectedText({ bold: newBold });,
-                  }}minWidth: '100px',
+                    setIsBold(newBold);
+                    if (selectedId) updateSelectedText({ bold: newBold });
+                  }}
                   className={`p-1 rounded ${(selectedText?.bold || isBold) ? 'bg-blue-100' : 'hover:bg-gray-200'}`}
-                > e)}
-                  <Bold size={20} /> ref={(el) => textRefs.current[text.id] = el}
+                >
+                  <Bold size={20} />
                 </button>
                 <button
                   onClick={() => {
-                    const newItalic = !isItalic;ize={14} className="opacity-50 cursor-move move-handle" />
+                    const newItalic = !isItalic;
                     setIsItalic(newItalic);
                     if (selectedId) updateSelectedText({ italic: newItalic });
-                  }}y-0 group-hover:opacity-100 text-gray-500 transition-opacity"
-                  className={`p-1 rounded ${(selectedText?.italic || isItalic) ? 'bg-blue-100' : 'hover:bg-gray-200'}`} title="Duplicate"
+                  }}
+                  className={`p-1 rounded ${(selectedText?.italic || isItalic) ? 'bg-blue-100' : 'hover:bg-gray-200'}`}
                 >
-                  <Italic size={20} />ize={14} />
-                </button>n>
+                  <Italic size={20} />
+                </button>
               </div>
 
-              <div className="flex items-center gap-2 border-l border-gray-300 pl-4"> className="opacity-0 group-hover:opacity-100 text-red-500 transition-opacity"
+              <div className="flex items-center gap-2 border-l border-gray-300 pl-4">
                 <span className="text-sm text-gray-600">Line Height:</span>
-                <input size={14} />
+                <input
                   type="range"
                   min="1"
-                  max="3"<AlertTriangle size={14} className="text-amber-500" title="Text is overflowing the canvas" />
+                  max="3"
                   step="0.1"
-                  value={selectedText?.lineHeight || lineHeight}</div>
+                  value={selectedText?.lineHeight || lineHeight}
                   onChange={(e) => {
                     const newLineHeight = parseFloat(e.target.value);
                     setLineHeight(newLineHeight);
                     if (selectedId) updateSelectedText({ lineHeight: newLineHeight });
-                  }}tChange(text.id, e)}
+                  }}
                   className="w-24"
-                />e="outline-none whitespace-pre-wrap break-words"
+                />
                 <span className="text-sm w-12">{(selectedText?.lineHeight || lineHeight).toFixed(1)}</span>
-              </div>em-ui',
-Size}px`,
+              </div>
               <div className="flex items-center gap-2 border-l border-gray-300 pl-4">
                 <span className="text-sm text-gray-600">Padding:</span>
-                <inputalic' : 'normal',
+                <input
                   type="range"
-                  min="0"padding: `0 ${text.padding}px`,
-                  max="50" }}
+                  min="0"
+                  max="50"
                   step="2"
                   value={selectedText?.padding || padding}
-                  onChange={(e) => {ceholders(text.text, batchData[currentBatchIndex])
-                    const newPadding = parseInt(e.target.value);text.text}
-                    setPadding(newPadding);v>
-                    if (selectedId) updateSelectedText({ padding: newPadding });/div>
+                  onChange={(e) => {
+                    const newPadding = parseInt(e.target.value);
+                    setPadding(newPadding);
+                    if (selectedId) updateSelectedText({ padding: newPadding });
                   }}
-                  className="w-24"          </div>
+                  className="w-24"
                 />
                 <span className="text-sm w-12">{selectedText?.padding || padding}px</span>
-              </div>sName="flex items-center justify-between mt-4 p-4 bg-gray-50 rounded-lg">
+              </div>
             </div>
-          </div>x(Math.max(0, currentBatchIndex - 1))}
+          </div>
 
-          <div className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50"
+          <div
             ref={canvasRef}
-            className="relative w-full h-[370px] border-2 border-gray-200 rounded-lg bg-white overflow-hidden"s
+            className="relative w-full h-[370px] border-2 border-gray-200 rounded-lg bg-white overflow-hidden"
             style={{
               width: '794px',
-              height: '370px'ew {currentBatchIndex + 1} of {batchData.length}
+              height: '370px'
             }}
           >
-            {texts.map((text) => (a.length - 1, currentBatchIndex + 1))}
+            {texts.map((text) => (
               <div
-                key={text.id} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50"
+                key={text.id}
                 data-text-id={text.id}
                 className={`absolute group ${
-                  selectedId === text.id ? 'text-blue-600' : 'text-gray-800'tton>
-                }`}</div>
+                  selectedId === text.id ? 'text-blue-600 ring-2 ring-blue-200 rounded' : 'text-gray-800'
+                } ${isDragging && selectedId === text.id ? 'cursor-grabbing opacity-80' : ''}`}
                 style={{
-                  left: `${text.x}px`,v>
-                  top: `${text.y}px`,v>
-                  minWidth: '100px',</div>
-                }} );
-                onMouseDown={(e) => handleMouseDown(text.id, e)}}
+                  left: `${text.x}px`,
+                  top: `${text.y}px`,
+                  minWidth: '100px',
+                  maxWidth: '600px', // Prevent text from extending too far
+                  fontSize: `${text.fontSize}px`,
+                  fontFamily: customFont || 'system-ui',
+                  textAlign: text.align,
+                  fontWeight: text.bold ? 'bold' : 'normal',
+                  fontStyle: text.italic ? 'italic' : 'normal',
+                  lineHeight: text.lineHeight,
+                  padding: `0 ${text.padding}px`,
+                }}
+                onMouseDown={(e) => handleMouseDown(text.id, e)}
                 ref={(el) => textRefs.current[text.id] = el}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-export default App;}  );    </div>      </div>        </div>          )}            </div>              </button>                Next              >                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50"                disabled={currentBatchIndex === batchData.length - 1}                onClick={() => setCurrentBatchIndex(Math.min(batchData.length - 1, currentBatchIndex + 1))}              <button              </span>                Preview {currentBatchIndex + 1} of {batchData.length}              <span className="text-sm text-gray-600">              </button>                Previous              >                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50"                disabled={currentBatchIndex === 0}                onClick={() => setCurrentBatchIndex(Math.max(0, currentBatchIndex - 1))}              <button            <div className="flex items-center justify-between mt-4 p-4 bg-gray-50 rounded-lg">          {batchData.length > 0 && (          </div>            ))}              </div>                </div>                    : text.text}                    ? replacePlaceholders(text.text, batchData[currentBatchIndex])                  {batchData.length > 0 && currentBatchIndex < batchData.length                >                  }}                    padding: `0 ${text.padding}px`,                    lineHeight: text.lineHeight,                    fontStyle: text.italic ? 'italic' : 'normal',                    fontWeight: text.bold ? 'bold' : 'normal',                    textAlign: text.align,                    fontSize: `${text.fontSize}px`,                    fontFamily: customFont || 'system-ui',                  style={{                  className="outline-none whitespace-pre-wrap break-words"                  onKeyDown={handleKeyDown}                  onInput={(e) => handleTextChange(text.id, e)}                  suppressContentEditableWarning                  contentEditable                <div                )}                  </div>                    )}                      <AlertTriangle size={14} className="text-amber-500" title="Text is overflowing the canvas" />                    {text.isOverflowing && (                    </button>                      <Trash2 size={14} />                    >                      className="opacity-0 group-hover:opacity-100 text-red-500 transition-opacity"                      onClick={() => deleteText(text.id)}                    <button                    </button>                      <Copy size={14} />                    >                      title="Duplicate"                      className="opacity-0 group-hover:opacity-100 text-gray-500 transition-opacity"                      onClick={() => duplicateText(text.id)}                    <button                    <Move size={14} className="opacity-50 cursor-move move-handle" />                  <div className="flex items-center gap-1 mb-1">                {!isExporting && (              >export default App;
+              >
+                {!isExporting && (
+                  <div className="flex items-center gap-1 mb-1">
+                    <Move size={14} className="opacity-50 cursor-move move-handle" />
+                    <button
+                      onClick={() => duplicateText(text.id)}
+                      title="Duplicate"
+                      className="opacity-0 group-hover:opacity-100 text-gray-500 transition-opacity"
+                    >
+                      <Copy size={14} />
+                    </button>
+                    <button
+                      onClick={() => deleteText(text.id)}
+                      className="opacity-0 group-hover:opacity-100 text-red-500 transition-opacity"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                    {text.isOverflowing && (
+                      <AlertTriangle 
+                        size={14} 
+                        className="text-amber-500" 
+                        title="Text is overflowing the canvas boundaries"
+                      />
+                    )}
+                  </div>
+                )}
+                <div
+                  contentEditable
+                  suppressContentEditableWarning
+                  onInput={(e) => handleTextChange(text.id, e)}
+                  onKeyDown={handleKeyDown}
+                  className="outline-none whitespace-pre-wrap break-words"
+                >
+                  {batchData.length > 0 && currentBatchIndex < batchData.length
+                    ? replacePlaceholders(text.text, batchData[currentBatchIndex])
+                    : text.text}
+                </div>
+              </div>
+            ))}
+            {isExporting && (
+              <div className="absolute inset-0 bg-white bg-opacity-50 flex items-center justify-center">
+                <div className="text-lg font-semibold text-gray-700">Generating PDF...</div>
+              </div>
+            )}
+          </div>
+
+          {batchData.length > 0 && (
+            <div className="flex items-center justify-between mt-4 p-4 bg-gray-50 rounded-lg">
+              <button
+                disabled={currentBatchIndex === 0}
+                onClick={() => setCurrentBatchIndex(Math.max(0, currentBatchIndex - 1))}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <span className="text-sm text-gray-600">
+                Preview {currentBatchIndex + 1} of {batchData.length}
+              </span>
+              <button
+                disabled={currentBatchIndex === batchData.length - 1}
+                onClick={() => setCurrentBatchIndex(Math.min(batchData.length - 1, currentBatchIndex + 1))}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default App;

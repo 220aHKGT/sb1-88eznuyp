@@ -299,7 +299,7 @@ function App() {
     }
   };
 
-  // Updated exportToPDF function with higher DPI settings
+  // Komplett überarbeitete exportToPDF-Funktion mit Vektortexten
   const exportToPDF = async (allPages = false) => {
     if (!canvasRef.current) {
       alert('Canvas reference is not available. Please try again.');
@@ -309,118 +309,113 @@ function App() {
     setIsExporting(true);
     const element = canvasRef.current;
     const originalTexts = [...texts];
-
+    
     try {
-      // Single page export (either no batch data or just current page)
-      if (!allPages || batchData.length === 0) {
-        // Configure PDF options for single page with higher DPI
-        const opt = {
-          margin: 0,
-          filename: 'text-editor-export.pdf',
-          image: { type: 'jpeg', quality: 1.0 }, // Increased quality to maximum
-          html2canvas: { 
-            scale: 4, // Increased scale for higher DPI
-            width: 794,
-            height: 370,
-            useCORS: true,
-            imageTimeout: 0, // No timeout for image loading
-            backgroundColor: '#ffffff'
-          },
-          jsPDF: { 
-            unit: 'cm',
-            format: [21.0, 9.8],
-            orientation: 'landscape',
-            compress: false // Better quality without compression
-          }
-        };
-
-        if (batchData.length > 0) {
-          // Replace placeholders with data from current batch
-          const replacedTexts = texts.map(text => ({
-            ...text,
-            text: replacePlaceholders(text.text, batchData[currentBatchIndex])
-          }));
-          
-          setTexts(replacedTexts);
-          
-          // Give DOM time to update
-          await new Promise(resolve => setTimeout(resolve, 200));
+      // PDF-Dokument erstellen
+      const pdf = new jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: [210, 98], // A4 Querformat, angepasste Höhe
+        compress: false,
+        precision: 16
+      });
+      
+      // Standard-Schriftarten hinzufügen für Text-Vektor-Rendering
+      pdf.addFont('helvetica', 'normal');
+      pdf.addFont('helvetica', 'bold');
+      pdf.addFont('helvetica', 'italic');
+      pdf.addFont('helvetica', 'bolditalic');
+      
+      // Bestimme die zu exportierenden Seiten
+      const pagesToExport = allPages && batchData.length > 0
+        ? batchData
+        : batchData.length > 0 
+          ? [batchData[currentBatchIndex]]
+          : [null]; // Eine Seite ohne Batch-Daten
+      
+      // Canvas-Hintergrund einfügen, um das Design zu erhalten
+      setIsCapturing(true);
+      const canvas = await html2canvas(element, {
+        scale: 4,
+        backgroundColor: '#ffffff',
+        logging: false
+      });
+      setIsCapturing(false);
+      
+      // PDF für jede Seite erstellen
+      for (let i = 0; i < pagesToExport.length; i++) {
+        const currentData = pagesToExport[i];
+        
+        // Bei mehreren Seiten neue Seite hinzufügen (außer bei der ersten Seite)
+        if (i > 0) {
+          pdf.addPage();
         }
         
-        // Hide loading indicator during capture
-        setIsCapturing(true);
-        await new Promise(resolve => setTimeout(resolve, 50));
+        // Weißen Hintergrund hinzufügen
+        pdf.setFillColor(255, 255, 255);
+        pdf.rect(0, 0, 210, 98, 'F');
         
-        // Export current view with higher quality
-        await html2pdf().set(opt).from(element).save();
-        
-        setIsCapturing(false);
-      } 
-      // Multi-page export
-      else {
-        // Create new PDF with jsPDF with higher quality settings
-        const pdf = new jsPDF({
-          orientation: 'landscape',
-          unit: 'cm',
-          format: [21.0, 9.8],
-          compress: false, // Better quality without compression
-          precision: 16 // Higher precision
-        });
-        
-        // Process each page separately
-        for (let i = 0; i < batchData.length; i++) {
-          // Display progress
-          const progressMsg = `Exporting page ${i+1}/${batchData.length}`;
-          console.log(progressMsg);
+        // Füge alle Textelemente als Vektoren hinzu
+        for (const text of texts) {
+          // Platzhalter ersetzen, wenn Batch-Daten vorhanden sind
+          const renderedText = currentData 
+            ? replacePlaceholders(text.text, currentData) 
+            : text.text;
+            
+          // Keine leeren Texte rendern
+          if (!renderedText.trim()) continue;
           
-          // Replace placeholders with current batch data
-          const replacedTexts = texts.map(text => ({
-            ...text,
-            text: replacePlaceholders(text.text, batchData[i])
-          }));
+          // Schriftart-Stil basierend auf bold/italic setzen
+          let fontStyle = 'normal';
+          if (text.bold && text.italic) fontStyle = 'bolditalic';
+          else if (text.bold) fontStyle = 'bold';
+          else if (text.italic) fontStyle = 'italic';
           
-          setTexts(replacedTexts);
+          pdf.setFont('helvetica', fontStyle);
+          pdf.setFontSize(text.fontSize * 0.75); // Skalieren für bessere Größenanpassung
           
-          // Allow time for rendering
-          await new Promise(resolve => setTimeout(resolve, 500));
+          // Textfarbe auf Schwarz setzen
+          pdf.setTextColor(0, 0, 0);
           
-          // Hide loading indicator during capture
-          setIsCapturing(true);
-          await new Promise(resolve => setTimeout(resolve, 50));
+          // Position berechnen (mm statt px)
+          const x = text.x * 210 / 794; // umrechnen in mm
+          const y = text.y * 98 / 370; // umrechnen in mm
+          const maxWidth = 600 * 210 / 794; // max. Breite in mm
           
-          // Capture the current state as an image with higher DPI
-          const canvas = await html2canvas(element, {
-            scale: 4, // Increased scale for higher DPI
-            width: 794,
-            height: 370,
-            logging: false,
-            backgroundColor: '#ffffff',
-            useCORS: true,
-            imageTimeout: 0 // No timeout for image loading
+          // Text mit Ausrichtung hinzufügen
+          const textLines = renderedText.split('\n');
+          let yOffset = y + (text.fontSize * 0.352); // Ungefährer Offset für erste Textzeile
+          
+          textLines.forEach(line => {
+            // Text zentriert oder rechtsbündig ausrichten
+            let xPos = x;
+            if (text.align === 'center') {
+              xPos = x + (maxWidth / 2);
+              pdf.setTextAlign('center');
+            } else if (text.align === 'right') {
+              xPos = x + maxWidth;
+              pdf.setTextAlign('right');
+            } else {
+              pdf.setTextAlign('left');
+            }
+            
+            // Text mit Padding hinzufügen
+            pdf.text(line, xPos + (text.padding * 0.264), yOffset);
+            
+            // Y-Position für die nächste Zeile anpassen
+            yOffset += (text.fontSize * 0.352 * text.lineHeight);
           });
-          
-          setIsCapturing(false);
-          
-          // Convert to image data with maximum quality
-          const imgData = canvas.toDataURL('image/jpeg', 1.0);
-          
-          // Add page for all but the first page
-          if (i > 0) {
-            pdf.addPage();
-          }
-          
-          // Add image to PDF with highest quality
-          pdf.addImage(imgData, 'JPEG', 0, 0, 21.0, 9.8, undefined, 'FAST');
         }
-        
-        // Save the PDF
-        pdf.save('all-pages.pdf');
       }
+      
+      // PDF speichern
+      pdf.save(allPages ? 'all-pages.pdf' : 'text-editor-export.pdf');
+        
     } catch (error) {
       console.error('Error exporting to PDF:', error);
       alert(`Error exporting to PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
-      // Reset texts to their original state
+      // Originalen Textzustand wiederherstellen
       setTexts(originalTexts);
       setIsExporting(false);
       setIsCapturing(false);

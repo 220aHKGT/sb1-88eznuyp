@@ -297,7 +297,7 @@ function App() {
     }
   };
 
-  // Fixed exportToPDF function using proper html2pdf API for multi-page PDFs
+  // Completely revised exportToPDF function to fix empty PDF issue
   const exportToPDF = async (allPages = false) => {
     if (!canvasRef.current) {
       alert('Canvas reference is not available. Please try again.');
@@ -309,91 +309,26 @@ function App() {
     const originalTexts = [...texts];
 
     try {
-      // Configure PDF options
-      const opt = {
-        margin: 0,
-        filename: allPages ? 'all-pages.pdf' : 'batch-export.pdf',
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { 
-          scale: 2,
-          width: 794,
-          height: 370,
-          logging: false,
-        },
-        jsPDF: { 
-          unit: 'cm',
-          format: [21.0, 9.8],
-          orientation: 'landscape' 
-        }
-      };
-
-      // Only process batch if we have batch data
-      if (batchData.length > 0) {
-        // If exporting all pages
-        if (allPages) {
-          // Create a temporary container for the full document
-          const tempContainer = document.createElement('div');
-          tempContainer.style.position = 'absolute';
-          tempContainer.style.left = '-9999px';
-          document.body.appendChild(tempContainer);
-
-          try {
-            // Process each batch page
-            for (let i = 0; i < batchData.length; i++) {
-              // Clone the canvas for this page
-              const pageContainer = document.createElement('div');
-              pageContainer.style.width = '794px';
-              pageContainer.style.height = '370px';
-              pageContainer.style.position = 'relative';
-              pageContainer.style.backgroundColor = 'white';
-              pageContainer.style.marginBottom = '20px'; // Space between pages
-              tempContainer.appendChild(pageContainer);
-              
-              // Create content for this page with replaced placeholders
-              const pageContent = document.createElement('div');
-              pageContent.style.position = 'absolute';
-              pageContent.style.inset = '0';
-              pageContainer.appendChild(pageContent);
-
-              // Clone and add each text element with replaced content
-              texts.forEach(text => {
-                const textElement = document.createElement('div');
-                textElement.style.position = 'absolute';
-                textElement.style.left = `${text.x}px`;
-                textElement.style.top = `${text.y}px`;
-                textElement.style.minWidth = '100px';
-                textElement.style.maxWidth = '600px';
-                textElement.style.fontSize = `${text.fontSize}px`;
-                textElement.style.fontFamily = customFont || 'system-ui';
-                textElement.style.textAlign = text.align;
-                textElement.style.fontWeight = text.bold ? 'bold' : 'normal';
-                textElement.style.fontStyle = text.italic ? 'italic' : 'normal';
-                textElement.style.lineHeight = `${text.lineHeight}`;
-                textElement.style.padding = `0 ${text.padding}px`;
-                
-                // Replace placeholders for this batch
-                textElement.innerText = replacePlaceholders(text.text, batchData[i]);
-                
-                pageContent.appendChild(textElement);
-              });
-
-              // Update progress
-              setTexts(prev => [...prev]);
-            }
-            
-            // Now export the full document
-            await html2pdf()
-              .set(opt)
-              .from(tempContainer)
-              .save();
-              
-          } finally {
-            // Clean up
-            document.body.removeChild(tempContainer);
+      // Single page export (either no batch data or just current page)
+      if (!allPages || batchData.length === 0) {
+        // Configure PDF options for single page
+        const opt = {
+          margin: 0,
+          filename: 'text-editor-export.pdf',
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { 
+            scale: 2,
+            width: 794,
+            height: 370,
+          },
+          jsPDF: { 
+            unit: 'cm',
+            format: [21.0, 9.8],
+            orientation: 'landscape' 
           }
-        } 
-        // Just export the current page
-        else {
+        };
+
+        if (batchData.length > 0) {
           // Replace placeholders with data from current batch
           const replacedTexts = texts.map(text => ({
             ...text,
@@ -402,17 +337,64 @@ function App() {
           
           setTexts(replacedTexts);
           
-          // Give more time for the DOM to update
+          // Give DOM time to update
           await new Promise(resolve => setTimeout(resolve, 200));
-          
-          await html2pdf().set(opt).from(element).save();
         }
-      } else {
-        // No batch data, just export the current view
-        await html2pdf().set({
-          ...opt,
-          filename: 'text-editor-export.pdf'
-        }).from(element).save();
+        
+        // Export current view
+        await html2pdf().set(opt).from(element).save();
+      } 
+      // Multi-page export
+      else {
+        // For multi-page exports, we'll use jsPDF directly with html2canvas
+        const { jsPDF } = require('jspdf');
+        const pdf = new jsPDF({
+          orientation: 'landscape',
+          unit: 'cm',
+          format: [21.0, 9.8]
+        });
+        
+        // Process each page separately using the actual canvas
+        for (let i = 0; i < batchData.length; i++) {
+          // Display progress
+          const progressMsg = `Exporting page ${i+1}/${batchData.length}`;
+          console.log(progressMsg);
+          
+          // Replace placeholders with current batch data
+          const replacedTexts = texts.map(text => ({
+            ...text,
+            text: replacePlaceholders(text.text, batchData[i])
+          }));
+          
+          setTexts(replacedTexts);
+          
+          // Allow time for rendering
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Capture the current state as an image
+          const canvas = await html2canvas(element, {
+            scale: 2,
+            width: 794,
+            height: 370,
+            logging: true, // Enable logging for debugging
+            backgroundColor: '#ffffff',
+            useCORS: true
+          });
+          
+          // Convert to image data
+          const imgData = canvas.toDataURL('image/jpeg', 1.0);
+          
+          // Add page for all but the first page
+          if (i > 0) {
+            pdf.addPage();
+          }
+          
+          // Add image to PDF
+          pdf.addImage(imgData, 'JPEG', 0, 0, 21.0, 9.8);
+        }
+        
+        // Save the PDF
+        pdf.save('all-pages.pdf');
       }
     } catch (error) {
       console.error('Error exporting to PDF:', error);
